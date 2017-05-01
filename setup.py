@@ -12,7 +12,9 @@ URL = 'https://github.com/linkdd/dirwatcher'
 AUTHOR = 'David Delassus'
 AUTHOR_EMAIL = 'david.jose.delassus@gmail.com'
 LICENSE = 'MIT'
-REQUIREMENTS = []
+REQUIREMENTS = [
+    'psutil>=5.2.2'
+]
 
 CLASSIFIERS = [
     'Development Status :: 3 - Alpha',

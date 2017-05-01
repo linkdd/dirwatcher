@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
 
 import subprocess
-import threading
+import _thread
+import psutil
 import time
 import sys
 import os
+
+try:
+    import threading
+
+except ImportError:
+    pass
 
 USE_INOTIFY = False
 
@@ -44,6 +51,7 @@ class DirectoryWatcher(object):
         self.script = script
 
         self.mtimes = {}
+        self.process = None
 
     def gen_filenames(self):
         for dirname, _, filenames in os.walk(self.directory):
@@ -84,16 +92,16 @@ class DirectoryWatcher(object):
 
     def watcher(self):
         for path in self.gen_filenames():
-            stat = os.stat(filename)
+            stat = os.stat(path)
             mtime = stat.st_mtime
 
             if USE_WINDOWS:
                 mtime -= stat.st_ctime
 
-            if filename not in self.mtimes:
-                self.mtimes[filename] = mtime
+            if path not in self.mtimes:
+                self.mtimes[path] = mtime
 
-            elif mtime != self.mtimes[filename]:
+            elif mtime != self.mtimes[path]:
                 return DirectoryWatcher.FILE_MODIFIED
 
         return None
@@ -103,6 +111,7 @@ class DirectoryWatcher(object):
             change = self.inotify_watcher() if USE_INOTIFY else self.watcher()
 
             if change == DirectoryWatcher.FILE_MODIFIED:
+                self.stop_script()
                 sys.exit(3)
 
             time.sleep(1)
@@ -115,15 +124,14 @@ class DirectoryWatcher(object):
             new_env = os.environ.copy()
             new_env[DirectoryWatcher.ENVVAR] = 'true'
 
-            retcode = subprocess.call(args, env=new_env)
+            exit_code = subprocess.call(args, env=new_env)
 
             if exit_code != 3:
                 return exit_code
 
     def reloader(self):
         if os.environ.get(DirectoryWatcher.ENVVAR) == 'true':
-            th = threading.Thread(target=self.launch_script)
-            th.start()
+            _thread.start_new_thread(self.launch_script, tuple())
 
             try:
                 self.reloader_thread()
@@ -145,4 +153,14 @@ class DirectoryWatcher(object):
                 pass
 
     def launch_script(self):
-        subprocess.call(self.script, shell=True)
+        self.process = subprocess.Popen(self.script, shell=True)
+        self.process.wait()
+
+    def stop_script(self):
+        if self.process is not None:
+            process = psutil.Process(self.process.pid)
+
+            for child in process.children(recursive=True):
+                child.kill()
+
+            process.kill()
