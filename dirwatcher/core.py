@@ -129,6 +129,8 @@ class DirectoryWatcher(object):
             if exit_code != 3:
                 return exit_code
 
+            print('\n!!! RELOADING !!!\n')
+
     def reloader(self):
         if os.environ.get(DirectoryWatcher.ENVVAR) == 'true':
             _thread.start_new_thread(self.launch_script, tuple())
