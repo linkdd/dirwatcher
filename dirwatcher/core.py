@@ -163,6 +163,14 @@ class DirectoryWatcher(object):
             process = psutil.Process(self.process.pid)
 
             for child in process.children(recursive=True):
-                child.kill()
+                try:
+                    child.kill()
 
-            process.kill()
+                except psutil.NoSuchProcess:
+                    pass
+
+            try:
+                process.kill()
+
+            except psutil.NoSuchProcess:
+                pass
